@@ -4,7 +4,13 @@ import numpy as np
 
 def sigmoid(x: np.ndarray) -> np.ndarray:
     """Numerically stable sigmoid."""
-    return np.where(x >= 0, 1 / (1 + np.exp(-x)), np.exp(x) / (1 + np.exp(x)))
+    out = np.empty_like(x)
+    pos = x >= 0
+    neg = ~pos
+    out[pos] = 1 / (1 + np.exp(-x[pos]))
+    exp_x = np.exp(x[neg])
+    out[neg] = exp_x / (1 + exp_x)
+    return out
 
 
 def _assert_no_nan(arr: np.ndarray, name: str) -> None:

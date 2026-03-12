@@ -102,7 +102,7 @@ def run_evaluation(
     return None
 
 
-def train(args: argparse.Namespace, metrics_path: str | None = None) -> SGNSModel:
+def train(args: argparse.Namespace, run_dir: str, metrics_path: str | None = None) -> SGNSModel:
     # ── Data ────────────────────────────────────────────────────────────────
     text8_path = download_text8()
     with open(text8_path) as f:
@@ -153,10 +153,7 @@ def train(args: argparse.Namespace, metrics_path: str | None = None) -> SGNSMode
             negatives = sampler.sample(len(centers), k=args.neg)
             lr = linear_lr(args.lr, step, total_steps)
             loss, grads, stats = model.gradients(centers, contexts, negatives)
-            # Gradients are of the mean loss (÷B). Scale lr by batch size
-            # so that each sample contributes lr_per_sample ≈ args.lr, matching
-            # original word2vec's per-sample SGD convention.
-            model.update(grads, lr * len(centers))
+            model.update(grads, lr)
 
             epoch_loss += loss
             n_batches  += 1
@@ -183,7 +180,7 @@ def train(args: argparse.Namespace, metrics_path: str | None = None) -> SGNSMode
 
             # ── Periodic checkpoint ──────────────────────────────────
             if args.save_steps and step % args.save_steps == 0:
-                ckpt_path = os.path.join(args.log_dir, f"checkpoint_step{step}.npy")
+                ckpt_path = os.path.join(run_dir, f"checkpoint_step{step:07d}.npy")
                 np.save(ckpt_path, model.W)
                 print(f"  Checkpoint saved: {ckpt_path}")
 
@@ -201,8 +198,9 @@ def train(args: argparse.Namespace, metrics_path: str | None = None) -> SGNSMode
         )
 
     if args.save:
-        np.save(args.save, model.W)
-        print(f"Embeddings saved to {args.save}")
+        save_path = os.path.join(run_dir, args.save)
+        np.save(save_path, model.W)
+        print(f"Embeddings saved to {save_path}")
 
     if csv_file:
         csv_file.close()
@@ -234,22 +232,23 @@ def parse_args() -> argparse.Namespace:
 if __name__ == "__main__":
     args = parse_args()
 
-    # ── Set up logging ───────────────────────────────────────────────────
-    os.makedirs(args.log_dir, exist_ok=True)
+    # ── Set up run directory ─────────────────────────────────────────────
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_path = os.path.join(args.log_dir, f"train_{timestamp}.log")
+    run_dir = os.path.join(args.log_dir, timestamp)
+    os.makedirs(run_dir, exist_ok=True)
+
+    log_path = os.path.join(run_dir, "train.log")
     logger = TeeLogger(log_path)
     sys.stdout = logger
 
-    metrics_path = os.path.join(args.log_dir, f"metrics_{timestamp}.csv")
+    metrics_path = os.path.join(run_dir, "metrics.csv")
 
     print(f"Run started: {timestamp}")
-    print(f"Args: {vars(args)}")
-    print(f"Log file: {log_path}")
-    print(f"Metrics file: {metrics_path}\n")
+    print(f"Run directory: {run_dir}")
+    print(f"Args: {vars(args)}\n")
 
     try:
-        model = train(args, metrics_path=metrics_path)
+        model = train(args, run_dir=run_dir, metrics_path=metrics_path)
 
         # ── Final evaluation ─────────────────────────────────────────────
         analogies_path = download_analogies()
@@ -261,5 +260,4 @@ if __name__ == "__main__":
     finally:
         sys.stdout = logger.terminal
         logger.close()
-        print(f"\nLog saved to {log_path}")
-        print(f"Metrics saved to {metrics_path}")
+        print(f"\nAll outputs saved to {run_dir}")
