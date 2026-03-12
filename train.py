@@ -8,6 +8,7 @@ Usage:
 """
 from __future__ import annotations
 import argparse
+import os
 import time
 import numpy as np
 
@@ -17,6 +18,24 @@ from src.data import (
 )
 from src.model import SGNSModel
 from src.negative_sampling import NegativeSampler
+
+
+ANALOGIES_URL = (
+    "https://raw.githubusercontent.com/nicholas-leonard/word2vec/"
+    "master/questions-words.txt"
+)
+
+
+def download_analogies(data_dir: str = "data") -> str:
+    import requests
+    path = os.path.join(data_dir, "questions-words.txt")
+    if not os.path.exists(path):
+        print("Downloading analogy dataset...")
+        r = requests.get(ANALOGIES_URL)
+        r.raise_for_status()
+        with open(path, "w") as f:
+            f.write(r.text)
+    return path
 
 
 def linear_lr(lr0: float, step: int, total_steps: int) -> float:
@@ -110,9 +129,29 @@ if __name__ == "__main__":
     args = parse_args()
     model = train(args)
 
-    # Quick nearest-neighbor preview after training
-    from src.evaluate import nearest_neighbors
-    for word in ["king", "paris", "computer", "good"]:
-        if word in model._word2idx:
-            nn = nearest_neighbors(model.W, model._word2idx, model._idx2word, word, n=5)
-            print(f"\nNearest to '{word}': {nn}")
+    from src.evaluate import nearest_neighbors, evaluate_analogies, load_google_analogies
+
+    word2idx = model._word2idx
+    idx2word = model._idx2word
+
+    # Nearest neighbors
+    probe_words = ["king", "paris", "computer", "good", "man"]
+    print("\n── Nearest Neighbors ─────────────────────────────")
+    for word in probe_words:
+        if word in word2idx:
+            nn = nearest_neighbors(model.W, word2idx, idx2word, word, n=8)
+            print(f"  {word:12s} → {', '.join(nn)}")
+
+    # Analogy evaluation
+    analogies_path = download_analogies()
+    categories = load_google_analogies(analogies_path)
+    print("\n── Analogy Accuracy ──────────────────────────────")
+    all_correct, all_total = 0, 0
+    for cat, pairs in categories.items():
+        correct_i, total_i = evaluate_analogies(model.W, word2idx, idx2word, pairs)
+        acc = correct_i / total_i if total_i > 0 else 0.0
+        print(f"  {cat:35s}  {acc*100:5.1f}%  ({total_i} pairs)")
+        all_correct += correct_i
+        all_total   += total_i
+    overall = all_correct / all_total if all_total > 0 else 0.0
+    print(f"\n  Overall: {overall*100:.1f}%  ({all_correct}/{all_total})")
