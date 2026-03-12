@@ -2,6 +2,7 @@ from __future__ import annotations
 from collections import Counter
 import os
 import zipfile
+from typing import Iterator
 import requests
 import numpy as np
 
@@ -55,6 +56,40 @@ def subsample_ids(
     keep_prob = np.clip(keep_prob, 0.0, 1.0)
     mask = rng.random(len(token_ids)) < keep_prob
     return token_ids[mask]
+
+
+def generate_pairs(
+    token_ids: np.ndarray,
+    max_window: int = 5,
+    rng: np.random.Generator | None = None,
+) -> Iterator[tuple[int, int]]:
+    """Yield (center_idx, context_idx) pairs using dynamic window size."""
+    if rng is None:
+        rng = np.random.default_rng()
+    n = len(token_ids)
+    for i in range(n):
+        window = int(rng.integers(1, max_window + 1))
+        start = max(0, i - window)
+        end = min(n, i + window + 1)
+        for j in range(start, end):
+            if j != i:
+                yield (token_ids[i], token_ids[j])
+
+
+def make_batches(
+    pairs: Iterator[tuple[int, int]],
+    batch_size: int = 512,
+) -> Iterator[tuple[np.ndarray, np.ndarray]]:
+    """Collect pairs into mini-batches."""
+    centers, contexts = [], []
+    for center, context in pairs:
+        centers.append(center)
+        contexts.append(context)
+        if len(centers) == batch_size:
+            yield np.array(centers, dtype=np.int32), np.array(contexts, dtype=np.int32)
+            centers, contexts = [], []
+    if centers:
+        yield np.array(centers, dtype=np.int32), np.array(contexts, dtype=np.int32)
 
 
 def build_vocab(
