@@ -84,6 +84,7 @@ class SGNSModel:
         u_neg = self.W_prime[negatives]       # (B, K, D)
 
         score_pos = (v_c * u_o).sum(axis=1)                    # (B,)
+        # (v_c[:, None, :] * u_neg).sum(axis=-1)
         score_neg = np.einsum("bd,bkd->bk", v_c, u_neg)       # (B, K)
 
         sig_pos = sigmoid(score_pos)   # (B,)

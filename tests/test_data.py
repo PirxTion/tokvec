@@ -80,6 +80,7 @@ def test_generate_pairs_center_context():
     centers = {p[0] for p in pairs}
     assert 20 in centers  # position 1
     assert 30 in centers  # position 2
+    assert 40 in centers
 
 
 def test_make_batches_shapes():
