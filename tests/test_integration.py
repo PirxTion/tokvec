@@ -3,7 +3,6 @@ small fixed corpus with identical hyperparameters. After a few epochs,
 verify that losses track closely and final embeddings are similar.
 """
 import numpy as np
-import pytest
 import torch
 import torch.nn as nn
 from src.model import SGNSModel
@@ -57,8 +56,6 @@ def test_numpy_pytorch_training_convergence():
     torch_model = TorchSGNS(W_init.copy(), Wp_init.copy())
     optimizer = torch.optim.SGD(torch_model.parameters(), lr=lr)
 
-    sampler = NegativeSampler(freq_array, table_size=10_000, seed=99)
-
     for epoch in range(epochs):
         # Deterministic pairs each epoch
         rng = np.random.default_rng(epoch)
@@ -72,7 +69,7 @@ def test_numpy_pytorch_training_convergence():
             negatives = sampler_epoch.sample(len(centers), k=K)
 
             # NumPy step
-            loss_np, grads = np_model.gradients(centers, contexts, negatives)
+            _, grads = np_model.gradients(centers, contexts, negatives)
             np_model.update(grads, lr)
 
             # PyTorch step
