@@ -7,6 +7,11 @@ def sigmoid(x: np.ndarray) -> np.ndarray:
     return np.where(x >= 0, 1 / (1 + np.exp(-x)), np.exp(x) / (1 + np.exp(x)))
 
 
+def _assert_no_nan(arr: np.ndarray, name: str) -> None:
+    if np.any(np.isnan(arr)):
+        raise ValueError(f"NaN detected in {name}")
+
+
 class SGNSModel:
     """Skip-Gram with Negative Sampling model.
 
@@ -55,8 +60,14 @@ class SGNSModel:
         score_pos = (v_c * u_o).sum(axis=1)                    # (B,)
         score_neg = np.einsum("bd,bkd->bk", v_c, u_neg)       # (B, K)
 
+        _assert_no_nan(score_pos, "score_pos")
+        _assert_no_nan(score_neg, "score_neg")
+
         loss = -np.log(sigmoid(score_pos) + 1e-10).mean()
         loss -= np.log(sigmoid(-score_neg) + 1e-10).mean()
+
+        if np.isnan(loss):
+            raise ValueError("NaN detected in loss")
         return float(loss)
 
     def gradients(
@@ -87,11 +98,17 @@ class SGNSModel:
         # (v_c[:, None, :] * u_neg).sum(axis=-1)
         score_neg = np.einsum("bd,bkd->bk", v_c, u_neg)       # (B, K)
 
+        _assert_no_nan(score_pos, "score_pos")
+        _assert_no_nan(score_neg, "score_neg")
+
         sig_pos = sigmoid(score_pos)   # (B,)
         sig_neg = sigmoid(score_neg)   # (B, K)
 
         sig_neg_inv = sigmoid(-score_neg)  # σ(-s) = 1 - σ(s), kept consistent with forward()
         loss = -np.log(sig_pos + 1e-10).mean() - np.log(sig_neg_inv + 1e-10).mean()
+
+        if np.isnan(loss):
+            raise ValueError("NaN detected in loss")
 
         # Gradient of loss w.r.t. input embeddings v_c:  (B, D)
         # Positive term normalised by B; negative term normalised by B*K
@@ -103,6 +120,10 @@ class SGNSModel:
 
         # Gradient w.r.t. output embeddings u_k:  (B, K, D)  [negative term, mean over B*K]
         d_u_neg = sig_neg[:, :, None] * v_c[:, None, :] / (B * K)            # (B, K, D)
+
+        _assert_no_nan(d_v_c,   "grad d_v_c")
+        _assert_no_nan(d_u_o,   "grad d_u_o")
+        _assert_no_nan(d_u_neg, "grad d_u_neg")
 
         # Accumulate into sparse dicts keyed by vocab index
         grads_W: dict[int, np.ndarray] = {}
@@ -130,3 +151,8 @@ class SGNSModel:
             self.W[idx] -= lr * g
         for idx, g in grads["W_prime"].items():
             self.W_prime[idx] -= lr * g
+
+        if np.any(np.isnan(self.W)):
+            raise ValueError("NaN detected in W after update")
+        if np.any(np.isnan(self.W_prime)):
+            raise ValueError("NaN detected in W_prime after update")
