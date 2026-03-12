@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import pytest
-from src.data import build_vocab, download_text8, tokenize
+from src.data import build_vocab, download_text8, tokenize, subsample_ids
 
 
 def test_build_vocab_basic():
@@ -30,6 +30,18 @@ def test_build_vocab_min_count():
 def test_tokenize():
     tokens = tokenize("hello world hello")
     assert tokens == ["hello", "world", "hello"]
+
+
+def test_subsample_removes_frequent_words():
+    # freq_array: word 0 is very frequent (0.99), word 1 is rare (0.01)
+    freq_array = np.array([0.99, 0.01])
+    token_ids = np.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1] * 100)
+    rng = np.random.default_rng(42)
+    kept = subsample_ids(token_ids, freq_array, t=1e-5, rng=rng)
+    freq_0 = (kept == 0).sum() / len(kept)
+    freq_1 = (kept == 1).sum() / len(kept)
+    # frequent word (0) should be heavily discarded; rare word (1) mostly kept
+    assert freq_0 < freq_1
 
 
 def test_download_text8_creates_file(tmp_path):

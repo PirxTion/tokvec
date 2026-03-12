@@ -31,7 +31,30 @@ def download_text8(data_dir: str = "data") -> str:
 
 def tokenize(text: str) -> list[str]:
     """Split text on whitespace."""
-    return text.split()
+    return text.lower().split()
+
+
+def subsample_ids(
+    token_ids: np.ndarray,
+    freq_array: np.ndarray,
+    t: float = 1e-5,
+    rng: np.random.Generator | None = None,
+) -> np.ndarray:
+    """Subsample frequent words per Mikolov et al. §2.3.
+
+    P(keep word w) = sqrt(t / f(w))  clipped to [0, 1]
+
+    Note: The paper's full formula is sqrt(t/f) + t/f. We use the simplified
+    sqrt(t/f) approximation, which dominates at typical frequencies and is
+    the form most implementations use. Be ready to discuss this in review.
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+    f = freq_array[token_ids]
+    keep_prob = np.sqrt(t / f)
+    keep_prob = np.clip(keep_prob, 0.0, 1.0)
+    mask = rng.random(len(token_ids)) < keep_prob
+    return token_ids[mask]
 
 
 def build_vocab(
