@@ -32,39 +32,11 @@ def evaluate_analogies(
     word2idx: dict[str, int],
     idx2word: dict[int, str],
     analogies: list[tuple[str, str, str, str]],
-) -> float:
-    """Evaluate analogy accuracy using 3CosAdd.
+) -> tuple[int, int]:
+    """Evaluate analogies using 3CosAdd. Returns (correct, total) counts.
 
     For each (a, b, c, d): predict argmax cos(w, v_b - v_a + v_c).
-    Excludes a, b, c from candidates. Returns accuracy in [0, 1].
-    """
-    W_norm = _unit_normalize(W)
-    correct = 0
-    total   = 0
-    for a, b, c, d in analogies:
-        if any(w not in word2idx for w in [a, b, c, d]):
-            continue
-        query_vec = W_norm[word2idx[b]] - W_norm[word2idx[a]] + W_norm[word2idx[c]]
-        sims = W_norm @ query_vec
-        # Mask out query words
-        for w in [a, b, c]:
-            sims[word2idx[w]] = -np.inf
-        pred_idx = int(np.argmax(sims))
-        if pred_idx == word2idx[d]:
-            correct += 1
-        total += 1
-    return correct / total if total > 0 else 0.0
-
-
-def evaluate_analogies_counts(
-    W: np.ndarray,
-    word2idx: dict[str, int],
-    idx2word: dict[int, str],
-    analogies: list[tuple[str, str, str, str]],
-) -> tuple[int, int]:
-    """Like evaluate_analogies but returns raw (correct, total) integer counts.
-
-    Use this for aggregating across categories to avoid float rounding errors.
+    Excludes a, b, c from candidates.
     """
     W_norm = _unit_normalize(W)
     correct = 0

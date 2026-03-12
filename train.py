@@ -71,9 +71,13 @@ def train(args: argparse.Namespace) -> SGNSModel:
 
             if step % 10_000 == 0:
                 elapsed = time.time() - t0
+                grad_norm = np.sqrt(
+                    sum(np.dot(g, g) for g in grads["W"].values()) +
+                    sum(np.dot(g, g) for g in grads["W_prime"].values())
+                )
                 print(
                     f"  step {step:>7,} | loss {loss:.4f} "
-                    f"| lr {lr:.5f} | {elapsed:.0f}s elapsed"
+                    f"| lr {lr:.5f} | gnorm {grad_norm:.3f} | {elapsed:.0f}s elapsed"
                 )
 
         print(

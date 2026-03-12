@@ -27,5 +27,5 @@ def test_evaluate_analogies_perfect():
     word2idx = {"man": 0, "king": 1, "woman": 2, "queen": 3}
     idx2word = {v: k for k, v in word2idx.items()}
     analogies = [("man", "king", "woman", "queen")]
-    acc = evaluate_analogies(W, word2idx, idx2word, analogies)
-    assert acc == 1.0
+    correct, total = evaluate_analogies(W, word2idx, idx2word, analogies)
+    assert correct == 1 and total == 1
