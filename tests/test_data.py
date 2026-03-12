@@ -1,5 +1,7 @@
+import os
 import numpy as np
-from src.data import build_vocab
+import pytest
+from src.data import build_vocab, download_text8, tokenize
 
 
 def test_build_vocab_basic():
@@ -23,3 +25,18 @@ def test_build_vocab_min_count():
     assert "y" in word2idx
     assert "z" not in word2idx
     assert freq_array.shape == (2,)
+
+
+def test_tokenize():
+    tokens = tokenize("hello world hello")
+    assert tokens == ["hello", "world", "hello"]
+
+
+def test_download_text8_creates_file(tmp_path):
+    if os.environ.get("SKIP_DOWNLOAD"):
+        pytest.skip("SKIP_DOWNLOAD is set")
+    path = download_text8(data_dir=str(tmp_path))
+    assert os.path.exists(path)
+    with open(path) as f:
+        content = f.read(100)
+    assert len(content) > 0
