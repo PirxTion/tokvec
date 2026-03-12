@@ -78,7 +78,7 @@ class TorchSGNS(nn.Module):
         ).squeeze(2)                                      # (B, K)
 
         loss = -torch.log(torch.sigmoid(score_pos) + 1e-10).mean()
-        loss -= torch.log(torch.sigmoid(-score_neg) + 1e-10).mean()
+        loss -= torch.log(torch.sigmoid(-score_neg) + 1e-10).sum(dim=1).mean()
         return loss
 
 
@@ -102,7 +102,7 @@ def batch():
 
 def test_gradient_W_numerical(tiny_model, batch):
     centers, contexts, negatives = batch
-    _, analytical_grads = tiny_model.gradients(centers, contexts, negatives)
+    _, analytical_grads, _ = tiny_model.gradients(centers, contexts, negatives)
     num_grad_W, _ = numerical_gradient(tiny_model, centers, contexts, negatives)
     dense_grad_W, _ = _dense_grads(tiny_model, analytical_grads)
     np.testing.assert_allclose(
@@ -113,7 +113,7 @@ def test_gradient_W_numerical(tiny_model, batch):
 
 def test_gradient_W_prime_numerical(tiny_model, batch):
     centers, contexts, negatives = batch
-    _, analytical_grads = tiny_model.gradients(centers, contexts, negatives)
+    _, analytical_grads, _ = tiny_model.gradients(centers, contexts, negatives)
     _, num_grad_Wp = numerical_gradient(tiny_model, centers, contexts, negatives)
     _, dense_grad_Wp = _dense_grads(tiny_model, analytical_grads)
     np.testing.assert_allclose(
@@ -146,7 +146,7 @@ def test_gradients_match_pytorch(tiny_model, batch):
     centers, contexts, negatives = batch
 
     # NumPy analytical gradients
-    _, analytical_grads = tiny_model.gradients(centers, contexts, negatives)
+    _, analytical_grads, _ = tiny_model.gradients(centers, contexts, negatives)
     dense_W, dense_Wp = _dense_grads(tiny_model, analytical_grads)
 
     # PyTorch autograd gradients
@@ -181,7 +181,7 @@ def test_sgd_update_matches_pytorch(tiny_model, batch):
     Wp_init = tiny_model.W_prime.copy()
 
     # NumPy: one gradient step
-    _, grads = tiny_model.gradients(centers, contexts, negatives)
+    _, grads, _ = tiny_model.gradients(centers, contexts, negatives)
     tiny_model.update(grads, lr)
 
     # PyTorch: one gradient step

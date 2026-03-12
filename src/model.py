@@ -63,8 +63,9 @@ class SGNSModel:
         _assert_no_nan(score_pos, "score_pos")
         _assert_no_nan(score_neg, "score_neg")
 
+        # Per-sample loss: -log σ(s+) - Σ_k log σ(-s_k), then mean over B
         loss = -np.log(sigmoid(score_pos) + 1e-10).mean()
-        loss -= np.log(sigmoid(-score_neg) + 1e-10).mean()
+        loss -= np.log(sigmoid(-score_neg) + 1e-10).sum(axis=1).mean()
 
         if np.isnan(loss):
             raise ValueError("NaN detected in loss")
@@ -105,21 +106,20 @@ class SGNSModel:
         sig_neg = sigmoid(score_neg)   # (B, K)
 
         sig_neg_inv = sigmoid(-score_neg)  # σ(-s) = 1 - σ(s), kept consistent with forward()
-        loss = -np.log(sig_pos + 1e-10).mean() - np.log(sig_neg_inv + 1e-10).mean()
+        # Per-sample loss: -log σ(s+) - Σ_k log σ(-s_k), then mean over B
+        loss = -np.log(sig_pos + 1e-10).mean() - np.log(sig_neg_inv + 1e-10).sum(axis=1).mean()
 
         if np.isnan(loss):
             raise ValueError("NaN detected in loss")
 
-        # Gradient of loss w.r.t. input embeddings v_c:  (B, D)
-        # Positive term normalised by B; negative term normalised by B*K
+        # Gradients of the mean loss L = (1/B) Σ_b [-log σ(s+) - Σ_k log σ(-s_k)]
+        # Each term is divided by B only; the Σ_k stays inside the per-sample loss.
         d_v_c  = (sig_pos - 1)[:, None] * u_o / B                            # (B, D)
-        d_v_c += (sig_neg[:, :, None] * u_neg).sum(axis=1) / (B * K)         # (B, D)
+        d_v_c += (sig_neg[:, :, None] * u_neg).sum(axis=1) / B               # (B, D)
 
-        # Gradient w.r.t. output embedding u_o:  (B, D)  [positive term, mean over B]
         d_u_o  = (sig_pos - 1)[:, None] * v_c / B                            # (B, D)
 
-        # Gradient w.r.t. output embeddings u_k:  (B, K, D)  [negative term, mean over B*K]
-        d_u_neg = sig_neg[:, :, None] * v_c[:, None, :] / (B * K)            # (B, K, D)
+        d_u_neg = sig_neg[:, :, None] * v_c[:, None, :] / B                  # (B, K, D)
 
         _assert_no_nan(d_v_c,   "grad d_v_c")
         _assert_no_nan(d_u_o,   "grad d_u_o")
@@ -139,7 +139,13 @@ class SGNSModel:
                 nidx = int(negatives[b, k])
                 grads_W_prime[nidx] = grads_W_prime.get(nidx, np.zeros(self.embed_dim)) + d_u_neg[b, k]
 
-        return float(loss), {"W": grads_W, "W_prime": grads_W_prime}
+        stats = {
+            "score_pos_mean": float(score_pos.mean()),
+            "score_neg_mean": float(score_neg.mean()),
+            "sig_pos_mean":   float(sig_pos.mean()),
+            "sig_neg_mean":   float(sig_neg.mean()),
+        }
+        return float(loss), {"W": grads_W, "W_prime": grads_W_prime}, stats
 
     def update(
         self,

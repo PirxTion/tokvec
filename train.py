@@ -152,8 +152,11 @@ def train(args: argparse.Namespace, metrics_path: str | None = None) -> SGNSMode
         for centers, contexts in batches:
             negatives = sampler.sample(len(centers), k=args.neg)
             lr = linear_lr(args.lr, step, total_steps)
-            loss, grads = model.gradients(centers, contexts, negatives)
-            model.update(grads, lr)
+            loss, grads, stats = model.gradients(centers, contexts, negatives)
+            # Gradients are of the mean loss (÷B). Scale lr by batch size
+            # so that each sample contributes lr_per_sample ≈ args.lr, matching
+            # original word2vec's per-sample SGD convention.
+            model.update(grads, lr * len(centers))
 
             epoch_loss += loss
             n_batches  += 1
@@ -168,6 +171,10 @@ def train(args: argparse.Namespace, metrics_path: str | None = None) -> SGNSMode
                 print(
                     f"  step {step:>7,} | loss {loss:.4f} "
                     f"| lr {lr:.5f} | gnorm {grad_norm:.3f} | {elapsed:.0f}s elapsed"
+                    f"\n    pos_score {stats['score_pos_mean']:+.4f} "
+                    f"neg_score {stats['score_neg_mean']:+.4f} "
+                    f"| σ(pos) {stats['sig_pos_mean']:.4f} "
+                    f"σ(neg) {stats['sig_neg_mean']:.4f}"
                 )
                 if csv_writer:
                     csv_writer.writerow([step, epoch, f"{loss:.6f}", f"{lr:.6f}",

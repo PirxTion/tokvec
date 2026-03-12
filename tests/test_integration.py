@@ -28,7 +28,7 @@ class TorchSGNS(nn.Module):
         score_pos = (v_c * u_o).sum(dim=1)
         score_neg = torch.bmm(u_neg, v_c.unsqueeze(2)).squeeze(2)
         loss = -torch.log(torch.sigmoid(score_pos) + 1e-10).mean()
-        loss -= torch.log(torch.sigmoid(-score_neg) + 1e-10).mean()
+        loss -= torch.log(torch.sigmoid(-score_neg) + 1e-10).sum(dim=1).mean()
         return loss
 
 
@@ -69,7 +69,7 @@ def test_numpy_pytorch_training_convergence():
             negatives = sampler_epoch.sample(len(centers), k=K)
 
             # NumPy step
-            _, grads = np_model.gradients(centers, contexts, negatives)
+            _, grads, _ = np_model.gradients(centers, contexts, negatives)
             np_model.update(grads, lr)
 
             # PyTorch step
