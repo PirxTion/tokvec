@@ -162,8 +162,7 @@ def train(args: argparse.Namespace, run_dir: str, metrics_path: str | None = Non
             if step % args.log_steps == 0:
                 elapsed = time.time() - t0
                 grad_norm = np.sqrt(
-                    sum(np.dot(g, g) for g in grads["W"].values()) +
-                    sum(np.dot(g, g) for g in grads["W_prime"].values())
+                    np.sum(grads["W"] ** 2) + np.sum(grads["W_prime"] ** 2)
                 )
                 print(
                     f"  step {step:>7,} | loss {loss:.4f} "

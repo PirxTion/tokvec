@@ -131,19 +131,12 @@ class SGNSModel:
         _assert_no_nan(d_u_o,   "grad d_u_o")
         _assert_no_nan(d_u_neg, "grad d_u_neg")
 
-        # Accumulate into sparse dicts keyed by vocab index
-        grads_W: dict[int, np.ndarray] = {}
-        for b in range(B):
-            idx = int(centers[b])
-            grads_W[idx] = grads_W.get(idx, np.zeros(self.embed_dim)) + d_v_c[b]
-
-        grads_W_prime: dict[int, np.ndarray] = {}
-        for b in range(B):
-            idx = int(contexts[b])
-            grads_W_prime[idx] = grads_W_prime.get(idx, np.zeros(self.embed_dim)) + d_u_o[b]
-            for k in range(K):
-                nidx = int(negatives[b, k])
-                grads_W_prime[nidx] = grads_W_prime.get(nidx, np.zeros(self.embed_dim)) + d_u_neg[b, k]
+        # Accumulate gradients via vectorized scatter-add
+        grad_W = np.zeros_like(self.W)
+        grad_Wp = np.zeros_like(self.W_prime)
+        np.add.at(grad_W, centers, d_v_c)
+        np.add.at(grad_Wp, contexts, d_u_o)
+        np.add.at(grad_Wp, negatives.ravel(), d_u_neg.reshape(-1, self.embed_dim))
 
         stats = {
             "score_pos_mean": float(score_pos.mean()),
@@ -151,18 +144,16 @@ class SGNSModel:
             "sig_pos_mean":   float(sig_pos.mean()),
             "sig_neg_mean":   float(sig_neg.mean()),
         }
-        return float(loss), {"W": grads_W, "W_prime": grads_W_prime}, stats
+        return float(loss), {"W": grad_W, "W_prime": grad_Wp}, stats
 
     def update(
         self,
         grads: dict,
         lr: float,
     ) -> None:
-        """Apply SGD update in-place using sparse gradient dicts."""
-        for idx, g in grads["W"].items():
-            self.W[idx] -= lr * g
-        for idx, g in grads["W_prime"].items():
-            self.W_prime[idx] -= lr * g
+        """Apply SGD update in-place using dense gradient arrays."""
+        self.W -= lr * grads["W"]
+        self.W_prime -= lr * grads["W_prime"]
 
         if np.any(np.isnan(self.W)):
             raise ValueError("NaN detected in W after update")

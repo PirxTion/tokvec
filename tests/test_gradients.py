@@ -45,16 +45,6 @@ def numerical_gradient(model: SGNSModel, centers, contexts, negatives, eps=1e-5)
     return grad_W, grad_W_prime
 
 
-def _dense_grads(model, grads):
-    """Convert sparse grad dict to dense arrays."""
-    dense_W = np.zeros_like(model.W)
-    for idx, g in grads["W"].items():
-        dense_W[idx] += g
-    dense_Wp = np.zeros_like(model.W_prime)
-    for idx, g in grads["W_prime"].items():
-        dense_Wp[idx] += g
-    return dense_W, dense_Wp
-
 
 class TorchSGNS(nn.Module):
     """Minimal PyTorch SGNS — same math as our NumPy model, for oracle testing."""
@@ -104,9 +94,8 @@ def test_gradient_W_numerical(tiny_model, batch):
     centers, contexts, negatives = batch
     _, analytical_grads, _ = tiny_model.gradients(centers, contexts, negatives)
     num_grad_W, _ = numerical_gradient(tiny_model, centers, contexts, negatives)
-    dense_grad_W, _ = _dense_grads(tiny_model, analytical_grads)
     np.testing.assert_allclose(
-        dense_grad_W, num_grad_W, rtol=1e-4, atol=1e-6,
+        analytical_grads["W"], num_grad_W, rtol=1e-4, atol=1e-6,
         err_msg="W gradient mismatch (numerical)"
     )
 
@@ -115,9 +104,8 @@ def test_gradient_W_prime_numerical(tiny_model, batch):
     centers, contexts, negatives = batch
     _, analytical_grads, _ = tiny_model.gradients(centers, contexts, negatives)
     _, num_grad_Wp = numerical_gradient(tiny_model, centers, contexts, negatives)
-    _, dense_grad_Wp = _dense_grads(tiny_model, analytical_grads)
     np.testing.assert_allclose(
-        dense_grad_Wp, num_grad_Wp, rtol=1e-4, atol=1e-6,
+        analytical_grads["W_prime"], num_grad_Wp, rtol=1e-4, atol=1e-6,
         err_msg="W_prime gradient mismatch (numerical)"
     )
 
@@ -147,7 +135,6 @@ def test_gradients_match_pytorch(tiny_model, batch):
 
     # NumPy analytical gradients
     _, analytical_grads, _ = tiny_model.gradients(centers, contexts, negatives)
-    dense_W, dense_Wp = _dense_grads(tiny_model, analytical_grads)
 
     # PyTorch autograd gradients
     torch_model = TorchSGNS(tiny_model.W.copy(), tiny_model.W_prime.copy())
@@ -162,11 +149,11 @@ def test_gradients_match_pytorch(tiny_model, batch):
     torch_grad_Wp = torch_model.W_prime.weight.grad.numpy()
 
     np.testing.assert_allclose(
-        dense_W, torch_grad_W, rtol=1e-5, atol=1e-7,
+        analytical_grads["W"], torch_grad_W, rtol=1e-5, atol=1e-7,
         err_msg="W gradient mismatch vs PyTorch autograd"
     )
     np.testing.assert_allclose(
-        dense_Wp, torch_grad_Wp, rtol=1e-5, atol=1e-7,
+        analytical_grads["W_prime"], torch_grad_Wp, rtol=1e-5, atol=1e-7,
         err_msg="W_prime gradient mismatch vs PyTorch autograd"
     )
 
