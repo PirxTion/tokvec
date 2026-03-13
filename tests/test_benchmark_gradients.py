@@ -1,6 +1,6 @@
 """Benchmark: dict-based vs np.add.at gradient accumulation.
 
-Run with:  uv run pytest tests/test_benchmark_gradients.py -v -s
+Run with:  uv run pytest -m benchmark tests/test_benchmark_gradients.py -v -s
 """
 
 import timeit
@@ -8,6 +8,8 @@ from itertools import product
 
 import numpy as np
 import pytest
+
+pytestmark = pytest.mark.benchmark
 
 # ---------------------------------------------------------------------------
 # Two standalone accumulation implementations
