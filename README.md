@@ -60,7 +60,8 @@ train.py                 — training loop with logging and periodic eval
 visualize.py             — plot loss & analogy curves from metrics CSV
 run.sh                   — one-command setup, test, train, and visualize
 tests/                   — tests (finite-diff, PyTorch oracle, integration, benchmark)
-logs/                    — training logs, metrics CSV, plots, checkpoints
+assets/                  — final run's metrics CSV, training log, and loss/accuracy plot
+logs/                    — per-run training output (timestamped subdirectories)
 data/                    — automatically downloaded on first run (text8, analogies)
 ```
 
