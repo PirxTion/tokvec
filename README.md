@@ -4,7 +4,7 @@ A from-scratch implementation of word2vec SGNS trained on text8, with analytical
 
 ## Training Results
 
-![Training loss and analogy accuracy over 5 epochs](logs/20260313_003039/training_plot.png)
+![Training loss and analogy accuracy over 5 epochs](logs/training_plot.png)
 
 |  | Value |
 |--|-------|
