@@ -153,7 +153,7 @@ def train(args: argparse.Namespace, run_dir: str, metrics_path: str | None = Non
             negatives = sampler.sample(len(centers), k=args.neg)
             lr = linear_lr(args.lr, step, total_steps)
             loss, grads, stats = model.gradients(centers, contexts, negatives)
-            model.update(grads, lr)
+            model.update(grads, lr * len(centers))
 
             epoch_loss += loss
             n_batches  += 1
