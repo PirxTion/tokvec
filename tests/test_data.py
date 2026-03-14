@@ -43,17 +43,6 @@ def test_subsample_removes_frequent_words():
     # frequent word (0) should be heavily discarded; rare word (1) mostly kept
     assert freq_0 < freq_1
 
-
-# def test_download_text8_creates_file(tmp_path):
-#     if os.environ.get("SKIP_DOWNLOAD"):
-#         pytest.skip("SKIP_DOWNLOAD is set")
-#     path = download_text8(data_dir=str(tmp_path))
-#     assert os.path.exists(path)
-#     with open(path) as f:
-#         content = f.read(100)
-#     assert len(content) > 0
-
-
 from src.data import generate_pairs, make_batches
 
 
